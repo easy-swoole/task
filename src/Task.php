@@ -4,6 +4,7 @@
 namespace EasySwoole\Task;
 
 
+use EasySwoole\Component\Process\AbstractProcess;
 use EasySwoole\Component\Process\Socket\UnixProcessConfig;
 use Swoole\Atomic\Long;
 use Swoole\Server;
@@ -28,6 +29,11 @@ class Task
     public function attachToServer(Server $server)
     {
         $this->attach = true;
+        $list = $this->__initProcess();
+        /** @var AbstractProcess $item */
+        foreach ($list as $item){
+            $server->addProcess($item->getProcess());
+        }
     }
 
     public function __initProcess():array
