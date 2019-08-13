@@ -11,6 +11,7 @@ class Config extends SplBean
     protected $tempDir;
     protected $workerNum = 3;
     protected $serverName = 'EasySwoole';
+    protected $maxRunningNum = 1024;
 
     /**
      * @return mixed
@@ -58,5 +59,21 @@ class Config extends SplBean
     public function setServerName(string $serverName): void
     {
         $this->serverName = $serverName;
+    }
+
+    /**
+     * @return int
+     */
+    public function getMaxRunningNum(): int
+    {
+        return $this->maxRunningNum;
+    }
+
+    /**
+     * @param int $maxRunningNum
+     */
+    public function setMaxRunningNum(int $maxRunningNum): void
+    {
+        $this->maxRunningNum = $maxRunningNum;
     }
 }
