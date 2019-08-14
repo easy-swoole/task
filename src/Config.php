@@ -12,6 +12,9 @@ class Config extends SplBean
     protected $workerNum = 3;
     protected $serverName = 'EasySwoole';
     protected $maxRunningNum = 1024;
+    /**
+     * @var float
+     */
     protected $timeout = 30;
     protected $onException;
 
@@ -80,17 +83,17 @@ class Config extends SplBean
     }
 
     /**
-     * @return int
+     * @return float
      */
-    public function getTimeout(): int
+    public function getTimeout(): float
     {
         return $this->timeout;
     }
 
     /**
-     * @param int $timeout
+     * @param float $timeout
      */
-    public function setTimeout(int $timeout): void
+    public function setTimeout(float $timeout): void
     {
         $this->timeout = $timeout;
     }

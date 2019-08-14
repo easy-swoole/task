@@ -11,6 +11,10 @@ class Package
     protected $type;
     protected $task;
     protected $onFinish;
+    /**
+     * @var float
+     */
+    protected $expire;
 
     /**
      * @return mixed
@@ -58,5 +62,21 @@ class Package
     public function setOnFinish($onFinish): void
     {
         $this->onFinish = $onFinish;
+    }
+
+    /**
+     * @return float
+     */
+    public function getExpire(): float
+    {
+        return $this->expire;
+    }
+
+    /**
+     * @param float $expire
+     */
+    public function setExpire(float $expire): void
+    {
+        $this->expire = $expire;
     }
 }

@@ -82,6 +82,7 @@ class Task
             $package->setType($package::ASYNC);
             $package->setTask($task);
             $package->setOnFinish($finishCallback);
+            $package->setExpire(round(microtime(true) + $this->config->getTimeout(),4));
             return $this->sendAndRecv($package,$id);
         }else{
             return false;
@@ -106,6 +107,7 @@ class Task
             $package = new Package();
             $package->setType($package::SYNC);
             $package->setTask($task);
+            $package->setExpire(round(microtime(true) + $timeout,4));
             return $this->sendAndRecv($package,$id,$timeout);
         }else{
             return false;

@@ -60,6 +60,16 @@ class Worker extends AbstractUnixProcess
             $package = unserialize($data);
             try{
                 if($this->infoTable->incr($this->workerIndex,'running',1) < $this->taskConfig->getMaxRunningNum()){
+                    /*
+                     * 在投递一些非协成任务的时候，例如客户端的等待时间是3s，阻塞任务也刚好是趋于2.99999~
+                     * 因此在进程accept该链接并读取完数据后，客户端刚好到达最大等待时间，客户端返回了null，
+                     * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
+                     */
+                    if($package->getExpire() - round(microtime(true),4) < 0.001){
+                        $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
+                        $socket->close();
+                        return;
+                    }
                     $taskId = $this->taskIdAtomic->add(1);
                     switch ($package->getType()){
                         case $package::ASYNC:{
