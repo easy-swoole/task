@@ -117,7 +117,11 @@ class Worker extends AbstractUnixProcess
             if($ref->implementsInterface(TaskInterface::class)){
                 /** @var TaskInterface $ins */
                 $ins = $ref->newInstance();
-                $reply = $ins->run($taskId,$this->workerIndex);
+                try{
+                    $reply = $ins->run($taskId,$this->workerIndex);
+                }catch (\Throwable $throwable){
+                    $reply = $ins->onException($throwable,$taskId,$this->workerIndex);
+                }
             }
         }else if($task instanceof SuperClosure){
             $reply = $task($taskId,$this->workerIndex);
