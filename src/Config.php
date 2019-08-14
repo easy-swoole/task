@@ -12,6 +12,8 @@ class Config extends SplBean
     protected $workerNum = 3;
     protected $serverName = 'EasySwoole';
     protected $maxRunningNum = 1024;
+    protected $timeout = 30;
+    protected $onException;
 
     /**
      * @return mixed
@@ -75,5 +77,44 @@ class Config extends SplBean
     public function setMaxRunningNum(int $maxRunningNum): void
     {
         $this->maxRunningNum = $maxRunningNum;
+    }
+
+    /**
+     * @return int
+     */
+    public function getTimeout(): int
+    {
+        return $this->timeout;
+    }
+
+    /**
+     * @param int $timeout
+     */
+    public function setTimeout(int $timeout): void
+    {
+        $this->timeout = $timeout;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getOnException()
+    {
+        return $this->onException;
+    }
+
+    /**
+     * @param mixed $onException
+     */
+    public function setOnException($onException): void
+    {
+        $this->onException = $onException;
+    }
+
+    protected function initialize(): void
+    {
+        if(empty($this->tempDir)){
+            $this->tempDir = getcwd();
+        }
     }
 }

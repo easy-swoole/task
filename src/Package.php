@@ -8,26 +8,9 @@ class Package
 {
     const ASYNC = 1;
     const SYNC = 2;
-
-    protected $taskId;
     protected $type;
-    protected $data;
-
-    /**
-     * @return mixed
-     */
-    public function getTaskId()
-    {
-        return $this->taskId;
-    }
-
-    /**
-     * @param mixed $taskId
-     */
-    public function setTaskId($taskId): void
-    {
-        $this->taskId = $taskId;
-    }
+    protected $task;
+    protected $onFinish;
 
     /**
      * @return mixed
@@ -48,17 +31,32 @@ class Package
     /**
      * @return mixed
      */
-    public function getData()
+    public function getTask()
     {
-        return $this->data;
+        return $this->task;
     }
 
     /**
-     * @param mixed $data
+     * @param mixed $task
      */
-    public function setData($data): void
+    public function setTask($task): void
     {
-        $this->data = $data;
+        $this->task = $task;
     }
 
+    /**
+     * @return mixed
+     */
+    public function getOnFinish()
+    {
+        return $this->onFinish;
+    }
+
+    /**
+     * @param mixed $onFinish
+     */
+    public function setOnFinish($onFinish): void
+    {
+        $this->onFinish = $onFinish;
+    }
 }
