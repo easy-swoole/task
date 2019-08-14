@@ -12,7 +12,7 @@ use Swoole\Table;
 
 class Worker extends AbstractUnixProcess
 {
-    protected $processId;
+    protected $workerIndex;
     /**
      * @var Table
      */
@@ -26,14 +26,17 @@ class Worker extends AbstractUnixProcess
 
     public function run($arg)
     {
-        $this->processId = $arg['processId'];
+        $this->workerIndex = $arg['workerIndex'];
         $this->infoTable = $arg['infoTable'];
         $this->taskIdAtomic = $arg['taskIdAtomic'];
         $this->taskConfig = $arg['taskConfig'];
-        $this->infoTable->set($this->processId,[
+        $this->infoTable->set($this->workerIndex,[
             'running'=>0,
             'success'=>0,
-            'fail'=>0
+            'fail'=>0,
+            'pid'=>$this->getProcess()->pid,
+            'workerId'=>$this->getProcess()->id,
+            'workerIndex'=>$this->workerIndex
         ]);
         parent::run($arg);
     }
@@ -56,7 +59,7 @@ class Worker extends AbstractUnixProcess
             /** @var Package $package */
             $package = unserialize($data);
             try{
-                if($this->infoTable->incr($this->processId,'running',1) < $this->taskConfig->getMaxRunningNum()){
+                if($this->infoTable->incr($this->workerIndex,'running',1) < $this->taskConfig->getMaxRunningNum()){
                     $taskId = $this->taskIdAtomic->add(1);
                     switch ($package->getType()){
                         case $package::ASYNC:{
@@ -76,9 +79,9 @@ class Worker extends AbstractUnixProcess
                     $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
                     $socket->close();
                 }
-                $this->infoTable->incr($this->processId,'success',1);
+                $this->infoTable->incr($this->workerIndex,'success',1);
             }catch (\Throwable $exception){
-                $this->infoTable->incr($this->processId,'fail',1);
+                $this->infoTable->incr($this->workerIndex,'fail',1);
                 if($package->getType() != $package::ASYNC){
                     /*
                      * 异步的已经立即返回了
@@ -88,7 +91,7 @@ class Worker extends AbstractUnixProcess
                 }
                 throw $exception;
             }finally{
-                $this->infoTable->decr($this->processId,'running',1);
+                $this->infoTable->decr($this->workerIndex,'running',1);
             }
         }else{
             $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PACKAGE_ERROR)));
@@ -99,7 +102,7 @@ class Worker extends AbstractUnixProcess
     protected function onException(\Throwable $throwable, ...$args)
     {
         if(is_callable($this->taskConfig->getOnException())){
-            call_user_func($this->taskConfig->getOnException(),$throwable,$this->processId);
+            call_user_func($this->taskConfig->getOnException(),$throwable,$this->workerIndex);
         }else{
             throw $throwable;
         }
@@ -114,15 +117,15 @@ class Worker extends AbstractUnixProcess
             if($ref->implementsInterface(TaskInterface::class)){
                 /** @var TaskInterface $ins */
                 $ins = $ref->newInstance();
-                $reply = $ins->run();
+                $reply = $ins->run($taskId,$this->workerIndex);
             }
         }else if($task instanceof SuperClosure){
-            $reply = $task($taskId);
+            $reply = $task($taskId,$this->workerIndex);
         }else if(is_callable($task)){
-            $reply = call_user_func($task,$taskId);
+            $reply = call_user_func($task,$taskId,$this->workerIndex);
         }
         if(is_callable($package->getOnFinish())){
-            $reply = call_user_func($package->getOnFinish(),$reply,$taskId);
+            $reply = call_user_func($package->getOnFinish(),$reply,$taskId,$this->workerIndex);
         }
         return $reply;
     }

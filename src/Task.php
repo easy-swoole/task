@@ -15,6 +15,7 @@ class Task
     private $taskIdAtomic;
     private $table;
     private $config;
+    private $attachServer = false;
 
     const ERROR_PROCESS_BUSY = -1;
     const ERROR_PACKAGE_ERROR = -2;
@@ -27,6 +28,9 @@ class Task
         $this->table->column('running',Table::TYPE_INT,4);
         $this->table->column('success',Table::TYPE_INT,4);
         $this->table->column('fail',Table::TYPE_INT,4);
+        $this->table->column('pid',Table::TYPE_INT,4);
+        $this->table->column('workerId',Table::TYPE_INT,4);
+        $this->table->column('workerIndex',Table::TYPE_INT,4);
         $this->table->create();
         $this->config = $config;
     }
@@ -38,6 +42,7 @@ class Task
         foreach ($list as $item){
             $server->addProcess($item->getProcess());
         }
+        $this->attachServer = true;
     }
 
     public function __initProcess():array
@@ -48,7 +53,7 @@ class Task
             $config->setProcessName($this->config->getServerName().".TaskWorker");
             $config->setSocketFile($this->idToUnixName($i));
             $config->setArg([
-                'processId'=>$i,
+                'workerIndex'=>$i,
                 'infoTable'=>$this->table,
                 'taskIdAtomic'=>$this->taskIdAtomic,
                 'taskConfig'=>$this->config
@@ -65,7 +70,6 @@ class Task
         }else{
             $id = $taskWorkerId;
         }
-
         if($id !== null){
             if($task instanceof \Closure){
                 try{
@@ -107,12 +111,32 @@ class Task
             return false;
         }
     }
+
+    function status():array
+    {
+        $ret = [];
+        foreach ($this->table as $key => $value){
+            $ret[$key] = $value;
+        }
+        return $ret;
+    }
+
     /*
      * 找出空闲的进程编号,目前用随机
      */
     private function findOutFreeId():?int
     {
+        /*
+         * 如果该实例是跟随server的，直接调用table来获取信息做最优分配进程
+         */
         mt_srand();
+        if($this->attachServer){
+            $info = $this->status();
+            if(!empty($info)){
+                array_multisort(array_column($info,'running'),SORT_ASC,$info);
+                return $info[0]['workerIndex'];
+            }
+        }
         return rand(0,$this->config->getWorkerNum() - 1);
     }
 

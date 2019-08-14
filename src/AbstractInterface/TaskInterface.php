@@ -6,5 +6,5 @@ namespace EasySwoole\Task\AbstractInterface;
 
 interface TaskInterface
 {
-    function run(int $taskId);
+    function run(int $taskId,int $workerIndex);
 }
