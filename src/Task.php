@@ -107,12 +107,6 @@ class Task
             return false;
         }
     }
-
-    function barrier(array $taskList,float $timeout = 3.0):array
-    {
-        $list = [];
-    }
-
     /*
      * 找出空闲的进程编号,目前用随机
      */
