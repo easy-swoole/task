@@ -78,6 +78,13 @@ class Task
                     return false;
                 }
             }
+            if($finishCallback instanceof \Closure){
+                try{
+                    $finishCallback = new SuperClosure($finishCallback);
+                }catch (\Throwable $throwable){
+                    return false;
+                }
+            }
             $package = new Package();
             $package->setType($package::ASYNC);
             $package->setTask($task);
