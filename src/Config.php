@@ -11,7 +11,7 @@ class Config extends SplBean
     protected $tempDir;
     protected $workerNum = 3;
     protected $serverName = 'EasySwoole';
-    protected $maxRunningNum = 1024;
+    protected $maxRunningNum = 128;
     /**
      * @var float
      */
