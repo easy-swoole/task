@@ -50,7 +50,7 @@ class Task
         $ret = [];
         for($i = 0;$i < $this->config->getWorkerNum();$i++){
             $config = new UnixProcessConfig();
-            $config->setProcessName($this->config->getServerName().".TaskWorker");
+            $config->setProcessName($this->config->getServerName().".TaskWorker.{$i}");
             $config->setSocketFile($this->idToUnixName($i));
             $config->setProcessGroup('EasySwoole.Task');
             $config->setArg([
