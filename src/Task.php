@@ -152,7 +152,7 @@ class Task
 
     private function idToUnixName(int $id):string
     {
-        return $this->config->getTempDir()."/TaskWorker.".md5($this->config->getServerName())."{$id}.sock";
+        return $this->config->getTempDir()."/{$this->config->getServerName()}.TaskWorker.{$id}.sock";
     }
 
     private function sendAndRecv(Package $package,int $id,float $timeout = null)
