@@ -52,7 +52,7 @@ class Task
             $config = new UnixProcessConfig();
             $config->setProcessName($this->config->getServerName().".TaskWorker.{$i}");
             $config->setSocketFile($this->idToUnixName($i));
-            $config->setProcessGroup('EasySwoole.Task');
+            $config->setProcessGroup('EasySwoole.TaskWorker');
             $config->setArg([
                 'workerIndex'=>$i,
                 'infoTable'=>$this->table,
