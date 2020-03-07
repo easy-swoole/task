@@ -5,6 +5,7 @@ namespace EasySwoole\Task;
 
 
 use EasySwoole\Spl\SplBean;
+use EasySwoole\Task\AbstractInterface\TaskQueueInterface;
 
 class Config extends SplBean
 {
@@ -17,6 +18,10 @@ class Config extends SplBean
      */
     protected $timeout = 5;
     protected $onException;
+    /**
+     * @var TaskQueueInterface
+     */
+    protected $taskQueue;
 
     /**
      * @return mixed
@@ -112,6 +117,22 @@ class Config extends SplBean
     public function setOnException($onException): void
     {
         $this->onException = $onException;
+    }
+
+    /**
+     * @return TaskQueueInterface
+     */
+    public function getTaskQueue(): ?TaskQueueInterface
+    {
+        return $this->taskQueue;
+    }
+
+    /**
+     * @param TaskQueueInterface $taskQueue
+     */
+    public function setTaskQueue(TaskQueueInterface $taskQueue): void
+    {
+        $this->taskQueue = $taskQueue;
     }
 
     protected function initialize(): void

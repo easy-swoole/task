@@ -17,10 +17,12 @@ class Task
     private $config;
     private $attachServer = false;
 
-    const ERROR_PROCESS_BUSY = -1;
-    const ERROR_PACKAGE_ERROR = -2;
-    const ERROR_TASK_ERROR = -3;
-    const ERROR_PACKAGE_EXPIRE = -4;
+    const PUSH_IN_QUEUE = 0;
+    const PUSH_QUEUE_FAIL = -1;
+    const ERROR_PROCESS_BUSY = -2;
+    const ERROR_PACKAGE_ERROR = -3;
+    const ERROR_TASK_ERROR = -4;
+    const ERROR_PACKAGE_EXPIRE = -5;
 
     function __construct(Config $config)
     {
@@ -33,6 +35,33 @@ class Task
         $this->table->column('workerIndex',Table::TYPE_INT,4);
         $this->table->create();
         $this->config = $config;
+    }
+
+    static function errCode2Msg(int $code):string
+    {
+        switch ($code){
+            case self::PUSH_IN_QUEUE:{
+                return 'push task in queue';
+            }
+            case self::PUSH_QUEUE_FAIL:{
+                return 'push task to queue fail';
+            }
+            case self::ERROR_PROCESS_BUSY:{
+                return 'task process busy';
+            }
+            case self::ERROR_PACKAGE_ERROR:{
+                return 'task package decode error';
+            }
+            case self::ERROR_TASK_ERROR:{
+                return "task run error";
+            }
+            case self::ERROR_PACKAGE_EXPIRE:{
+                return "task package expire";
+            }
+            default:{
+                return 'unknown error';
+            }
+        }
     }
 
     public function attachToServer(Server $server)

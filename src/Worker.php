@@ -9,6 +9,7 @@ use EasySwoole\Task\AbstractInterface\TaskInterface;
 use Swoole\Atomic\Long;
 use Swoole\Coroutine\Socket;
 use Swoole\Table;
+use Swoole\Timer;
 
 class Worker extends AbstractUnixProcess
 {
@@ -37,6 +38,26 @@ class Worker extends AbstractUnixProcess
             'pid'=>$this->getProcess()->pid,
             'workerIndex'=>$this->workerIndex
         ]);
+        /*
+         * 定时检查任务队列
+         */
+        if($this->taskConfig->getTaskQueue()){
+            Timer::tick(800,function (){
+                try{
+                    if($this->infoTable->incr($this->workerIndex,'running',1) <= $this->taskConfig->getMaxRunningNum()){
+                        $task = $this->taskConfig->getTaskQueue()->pop();
+                        if($task){
+                            $taskId = $this->taskIdAtomic->add(1);
+                            $this->runTask($task,$taskId);
+                        }
+                    }
+                }catch (\Throwable $exception){
+                    $this->onException($exception);
+                }finally{
+                    $this->infoTable->decr($this->workerIndex,'running',1);
+                }
+            });
+        }
         parent::run($arg);
     }
 
@@ -53,55 +74,67 @@ class Worker extends AbstractUnixProcess
         //多处close是为了快速释放连接
         $allLength = Protocol::packDataLength($header);
         $data = $socket->recvAll($allLength, 1);
-        if (strlen($data) == $allLength) {
-            /** @var Package $package */
-            $package = unserialize($data);
-            try{
-                /*
-                    * 在投递一些非协成任务的时候，例如客户端的等待时间是3s，阻塞任务也刚好是趋于2.99999~
-                    * 因此在进程accept该链接并读取完数据后，客户端刚好到达最大等待时间，客户端返回了null，
-                    * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
-                 */
-                if($package->getExpire() - round(microtime(true),3) < 0.01){
-                    $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
-                    $socket->close();
-                    return;
-                }
-                if($this->infoTable->incr($this->workerIndex,'running',1) < $this->taskConfig->getMaxRunningNum()){
-                    $taskId = $this->taskIdAtomic->add(1);
-                    switch ($package->getType()){
-                        case $package::ASYNC:{
-                            $socket->sendAll(Protocol::pack(serialize($taskId)));
-                            $this->runTask($package,$taskId);
-                            $socket->close();
-                            break;
-                        }
-                        case $package::SYNC:{
-                            $reply = $this->runTask($package,$taskId);
-                            $socket->sendAll(Protocol::pack(serialize($reply)));
-                            $socket->close();
-                            break;
-                        }
-                    }
-                    $this->infoTable->incr($this->workerIndex,'success',1);
-                }else{
-                    $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
-                    $socket->close();
-                }
-            }catch (\Throwable $exception){
-                $this->infoTable->incr($this->workerIndex,'fail',1);
-                //异步的已经立即返回任务id了
-                if($package->getType() != $package::ASYNC){
-                    $socket->sendAll(Protocol::pack(serialize(Task::ERROR_TASK_ERROR)));
-                    $socket->close();
-                }
-                throw $exception;
-            }finally{
-                $this->infoTable->decr($this->workerIndex,'running',1);
-            }
-        }else{
+        if (strlen($data) != $allLength) {
             $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PACKAGE_ERROR)));
             $socket->close();
+            return;
+        }
+        /** @var Package $package */
+        $package = unserialize($data);
+        if(!$package instanceof Package){
+            $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PACKAGE_ERROR)));
+            $socket->close();
+            return;
+        }
+        /*
+           * 在投递一些非协成任务的时候，例如客户端的等待时间是3s，阻塞任务也刚好是趋于2.99999~
+           * 因此在进程accept该链接并读取完数据后，客户端刚好到达最大等待时间，客户端返回了null，
+           * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
+        */
+        if($package->getExpire() - round(microtime(true),3) < 0.01){
+            $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PACKAGE_EXPIRE)));
+            $socket->close();
+            return;
+        }
+        try{
+            if($this->infoTable->incr($this->workerIndex,'running',1) <= $this->taskConfig->getMaxRunningNum()){
+                $taskId = $this->taskIdAtomic->add(1);
+                switch ($package->getType()){
+                    case $package::ASYNC:{
+                        $socket->sendAll(Protocol::pack(serialize($taskId)));
+                        $this->runTask($package,$taskId);
+                        $socket->close();
+                        break;
+                    }
+                    case $package::SYNC:{
+                        $reply = $this->runTask($package,$taskId);
+                        $socket->sendAll(Protocol::pack(serialize($reply)));
+                        $socket->close();
+                        break;
+                    }
+                }
+            }else{
+                //异步任务才进队列，
+                if(($package->getType() != $package::SYNC) && $this->taskConfig->getTaskQueue()){
+                    $ret = $this->taskConfig->getTaskQueue()->push($package);
+                    if($ret){
+                        $socket->sendAll(Protocol::pack(serialize(Task::PUSH_IN_QUEUE)));
+                    }else{
+                        $socket->sendAll(Protocol::pack(serialize(Task::PUSH_QUEUE_FAIL)));
+                    }
+                }else{
+                    $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
+                }
+                $socket->close();
+            }
+        }catch (\Throwable $exception){
+            if($package->getType() == $package::SYNC){
+                $socket->sendAll(Protocol::pack(serialize(Task::ERROR_TASK_ERROR)));
+                $socket->close();
+            }
+            throw $exception;
+        }finally{
+            $this->infoTable->decr($this->workerIndex,'running',1);
         }
     }
 
@@ -116,29 +149,35 @@ class Worker extends AbstractUnixProcess
 
     protected function runTask(Package $package,int $taskId)
     {
-        $task = $package->getTask();
-        $reply = null;
-        if(is_string($task) && class_exists($task)){
-            $ref = new \ReflectionClass($task);
-            if($ref->implementsInterface(TaskInterface::class)){
-                /** @var TaskInterface $ins */
-                $task = $ref->newInstance();
+        try{
+            $task = $package->getTask();
+            $reply = null;
+            if(is_string($task) && class_exists($task)){
+                $ref = new \ReflectionClass($task);
+                if($ref->implementsInterface(TaskInterface::class)){
+                    /** @var TaskInterface $ins */
+                    $task = $ref->newInstance();
+                }
             }
-        }
-        if($task instanceof TaskInterface){
-            try{
-                $reply = $task->run($taskId,$this->workerIndex);
-            }catch (\Throwable $throwable){
-                $reply = $task->onException($throwable,$taskId,$this->workerIndex);
+            if($task instanceof TaskInterface){
+                try{
+                    $reply = $task->run($taskId,$this->workerIndex);
+                }catch (\Throwable $throwable){
+                    $reply = $task->onException($throwable,$taskId,$this->workerIndex);
+                }
+            }else if($task instanceof SuperClosure){
+                $reply = $task($taskId,$this->workerIndex);
+            }else if(is_callable($task)){
+                $reply = call_user_func($task,$taskId,$this->workerIndex);
             }
-        }else if($task instanceof SuperClosure){
-            $reply = $task($taskId,$this->workerIndex);
-        }else if(is_callable($task)){
-            $reply = call_user_func($task,$taskId,$this->workerIndex);
+            if(is_callable($package->getOnFinish())){
+                $reply = call_user_func($package->getOnFinish(),$reply,$taskId,$this->workerIndex);
+            }
+            $this->infoTable->incr($this->workerIndex,'success',1);
+            return $reply;
+        }catch (\Throwable $throwable){
+            $this->infoTable->incr($this->workerIndex,'fail',1);
+            throw $throwable;
         }
-        if(is_callable($package->getOnFinish())){
-            $reply = call_user_func($package->getOnFinish(),$reply,$taskId,$this->workerIndex);
-        }
-        return $reply;
     }
 }
