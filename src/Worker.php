@@ -35,7 +35,6 @@ class Worker extends AbstractUnixProcess
             'success'=>0,
             'fail'=>0,
             'pid'=>$this->getProcess()->pid,
-            'workerId'=>$this->getProcess()->id,
             'workerIndex'=>$this->workerIndex
         ]);
         parent::run($arg);
@@ -50,7 +49,6 @@ class Worker extends AbstractUnixProcess
             $socket->close();
             return;
         }
-
         // 收包头声明的包长度 包长一致进入命令处理流程
         //多处close是为了快速释放连接
         $allLength = Protocol::packDataLength($header);
@@ -59,17 +57,17 @@ class Worker extends AbstractUnixProcess
             /** @var Package $package */
             $package = unserialize($data);
             try{
+                /*
+                    * 在投递一些非协成任务的时候，例如客户端的等待时间是3s，阻塞任务也刚好是趋于2.99999~
+                    * 因此在进程accept该链接并读取完数据后，客户端刚好到达最大等待时间，客户端返回了null，
+                    * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
+                 */
+                if($package->getExpire() - round(microtime(true),3) < 0.01){
+                    $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
+                    $socket->close();
+                    return;
+                }
                 if($this->infoTable->incr($this->workerIndex,'running',1) < $this->taskConfig->getMaxRunningNum()){
-                    /*
-                     * 在投递一些非协成任务的时候，例如客户端的等待时间是3s，阻塞任务也刚好是趋于2.99999~
-                     * 因此在进程accept该链接并读取完数据后，客户端刚好到达最大等待时间，客户端返回了null，
-                     * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
-                     */
-                    if($package->getExpire() - round(microtime(true),4) < 0.001){
-                        $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
-                        $socket->close();
-                        return;
-                    }
                     $taskId = $this->taskIdAtomic->add(1);
                     switch ($package->getType()){
                         case $package::ASYNC:{
@@ -85,17 +83,15 @@ class Worker extends AbstractUnixProcess
                             break;
                         }
                     }
+                    $this->infoTable->incr($this->workerIndex,'success',1);
                 }else{
                     $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
                     $socket->close();
                 }
-                $this->infoTable->incr($this->workerIndex,'success',1);
             }catch (\Throwable $exception){
                 $this->infoTable->incr($this->workerIndex,'fail',1);
+                //异步的已经立即返回任务id了
                 if($package->getType() != $package::ASYNC){
-                    /*
-                     * 异步的已经立即返回了
-                     */
                     $socket->sendAll(Protocol::pack(serialize(Task::ERROR_TASK_ERROR)));
                     $socket->close();
                 }

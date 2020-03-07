@@ -20,6 +20,7 @@ class Task
     const ERROR_PROCESS_BUSY = -1;
     const ERROR_PACKAGE_ERROR = -2;
     const ERROR_TASK_ERROR = -3;
+    const ERROR_PACKAGE_EXPIRE = -4;
 
     function __construct(Config $config)
     {
@@ -29,7 +30,6 @@ class Task
         $this->table->column('success',Table::TYPE_INT,4);
         $this->table->column('fail',Table::TYPE_INT,4);
         $this->table->column('pid',Table::TYPE_INT,4);
-        $this->table->column('workerId',Table::TYPE_INT,4);
         $this->table->column('workerIndex',Table::TYPE_INT,4);
         $this->table->create();
         $this->config = $config;
@@ -64,61 +64,52 @@ class Task
         return  $ret;
     }
 
-    public function async($task,callable $finishCallback = null,$taskWorkerId = null)
+    public function async($task,callable $finishCallback = null,$taskWorkerId = null):?int
     {
+        if($task instanceof \Closure){
+            $task = new SuperClosure($task);
+        }
+        if($finishCallback instanceof \Closure){
+            $finishCallback = new SuperClosure($finishCallback);
+        }
         if($taskWorkerId === null){
             $id = $this->findOutFreeId();
         }else{
             $id = $taskWorkerId;
         }
         if($id !== null){
-            if($task instanceof \Closure){
-                try{
-                    $task = new SuperClosure($task);
-                }catch (\Throwable $throwable){
-                    return false;
-                }
-            }
-            if($finishCallback instanceof \Closure){
-                try{
-                    $finishCallback = new SuperClosure($finishCallback);
-                }catch (\Throwable $throwable){
-                    return false;
-                }
-            }
             $package = new Package();
             $package->setType($package::ASYNC);
             $package->setTask($task);
             $package->setOnFinish($finishCallback);
-            $package->setExpire(round(microtime(true) + $this->config->getTimeout(),4));
+            $package->setExpire(round(microtime(true) + $this->config->getTimeout() - 0.01,3));
             return $this->sendAndRecv($package,$id);
         }else{
-            return false;
+            return null;
         }
     }
 
+    /*
+     * 同步返回执行结果
+     */
     public function sync($task,$timeout = 3.0,$taskWorkerId = null)
     {
+        if($task instanceof \Closure){
+            $task = new SuperClosure($task);
+        }
         if($taskWorkerId === null){
             $id = $this->findOutFreeId();
         }else{
             $id = $taskWorkerId;
         }
         if($id !== null){
-            if($task instanceof \Closure){
-                try{
-                    $task = new SuperClosure($task);
-                }catch (\Throwable $throwable){
-                    return false;
-                }
-            }
             $package = new Package();
             $package->setType($package::SYNC);
             $package->setTask($task);
-            $package->setExpire(round(microtime(true) + $timeout,4));
+            $package->setExpire(round(microtime(true) + $timeout - 0.01,4));
             return $this->sendAndRecv($package,$id,$timeout);
         }else{
-            return false;
+            return null;
         }
     }
 
@@ -163,6 +154,7 @@ class Task
         $client = new UnixClient($this->idToUnixName($id));
         $client->send(Protocol::pack(serialize($package)));
         $ret = $client->recv($timeout);
+        $client->close();
         if (!empty($ret)) {
             return unserialize(Protocol::unpack($ret));
         }else{

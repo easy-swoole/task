@@ -15,7 +15,7 @@ class Config extends SplBean
     /**
      * @var float
      */
-    protected $timeout = 30;
+    protected $timeout = 5;
     protected $onException;
 
     /**

@@ -33,6 +33,13 @@ class UnixClient
         }
     }
 
+    function close()
+    {
+        if ($this->client->isConnected()) {
+            $this->client->close();
+        }
+    }
+
     function send(string $rawData)
     {
         if ($this->client->isConnected()) {
