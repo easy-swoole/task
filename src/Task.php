@@ -77,11 +77,12 @@ class Task
     public function __initProcess():array
     {
         $ret = [];
+        $serverName = $this->config->getServerName();
         for($i = 0;$i < $this->config->getWorkerNum();$i++){
             $config = new UnixProcessConfig();
-            $config->setProcessName($this->config->getServerName().".TaskWorker.{$i}");
+            $config->setProcessName("{$serverName}.TaskWorker.{$i}");
             $config->setSocketFile($this->idToUnixName($i));
-            $config->setProcessGroup('EasySwoole.TaskWorker');
+            $config->setProcessGroup("{$serverName}.TaskWorker");
             $config->setArg([
                 'workerIndex'=>$i,
                 'infoTable'=>$this->table,
