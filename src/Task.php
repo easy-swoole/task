@@ -95,12 +95,6 @@ class Task
 
     public function async($task,callable $finishCallback = null,$taskWorkerId = null):?int
     {
-        if($task instanceof \Closure){
-            $task = new SuperClosure($task);
-        }
-        if($finishCallback instanceof \Closure){
-            $finishCallback = new SuperClosure($finishCallback);
-        }
         if($taskWorkerId === null){
             $id = $this->findOutFreeId();
         }else{
@@ -123,9 +117,6 @@ class Task
      */
     public function sync($task,$timeout = 3.0,$taskWorkerId = null)
     {
-        if($task instanceof \Closure){
-            $task = new SuperClosure($task);
-        }
         if($taskWorkerId === null){
             $id = $this->findOutFreeId();
         }else{
@@ -181,11 +172,11 @@ class Task
             $timeout = $this->config->getTimeout();
         }
         $client = new UnixClient($this->idToUnixName($id));
-        $client->send(Protocol::pack(serialize($package)));
+        $client->send(Protocol::pack(\Opis\Closure\serialize($package)));
         $ret = $client->recv($timeout);
         $client->close();
         if (!empty($ret)) {
-            return unserialize(Protocol::unpack($ret));
+            return \Opis\Closure\unserialize(Protocol::unpack($ret));
         }else{
             return null;
         }
