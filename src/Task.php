@@ -24,6 +24,7 @@ class Task
     const ERROR_TASK_ERROR = -4;
     const ERROR_PACKAGE_EXPIRE = -5;
 
+
     function __construct(Config $config)
     {
         $this->taskIdAtomic = new Long(0);
@@ -32,7 +33,6 @@ class Task
         $this->table->column('success',Table::TYPE_INT,4);
         $this->table->column('fail',Table::TYPE_INT,4);
         $this->table->column('pid',Table::TYPE_INT,4);
-        $this->table->column('workerIndex',Table::TYPE_INT,4);
         $this->table->create();
         $this->config = $config;
     }
