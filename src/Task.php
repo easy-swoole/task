@@ -179,7 +179,7 @@ class Task
         if (!empty($ret)) {
             return \Opis\Closure\unserialize(Protocol::unpack($ret));
         }else{
-            return null;
+            return self::ERROR_PROCESS_BUSY;
         }
     }
 }
