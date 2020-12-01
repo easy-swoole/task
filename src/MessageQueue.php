@@ -25,9 +25,14 @@ class MessageQueue implements TaskQueueInterface
         return $this->key;
     }
 
+    /*
+     * 清空一个queue,并不是删除
+     */
     function clearQueue()
     {
+
         msg_remove_queue($this->queue);
+        $this->queue = msg_get_queue($this->key , 0666);
     }
 
     function pop(): ?Package

@@ -129,7 +129,7 @@ class Task
         return  $ret;
     }
 
-    public function async($task,callable $finishCallback = null,$taskWorkerId = null):?int
+    public function async($task,callable $finishCallback = null,$taskWorkerId = null,float $timeout = null):?int
     {
         if($taskWorkerId === null){
             $taskWorkerId = $this->randomWorkerId();
@@ -138,14 +138,13 @@ class Task
         $package->setType($package::ASYNC);
         $package->setTask($task);
         $package->setOnFinish($finishCallback);
-        $package->setExpire(round(microtime(true) + $this->config->getTimeout() - 0.01,3));
-        return $this->sendAndRecv($package,$taskWorkerId);
+        return $this->sendAndRecv($package,$taskWorkerId,$timeout);
     }
 
     /*
      * 同步返回执行结果
      */
-    public function sync($task,$timeout = 3.0,$taskWorkerId = null)
+    public function sync($task,float $timeout = 3.0,$taskWorkerId = null)
     {
         if($taskWorkerId === null){
             $taskWorkerId = $this->randomWorkerId();
@@ -153,7 +152,6 @@ class Task
         $package = new Package();
         $package->setType($package::SYNC);
         $package->setTask($task);
-        $package->setExpire(round(microtime(true) + $timeout - 0.01,4));
         return $this->sendAndRecv($package,$taskWorkerId,$timeout);
     }
 
@@ -172,6 +170,11 @@ class Task
     {
         if($timeout === null){
             $timeout = $this->config->getTimeout();
+        }
+        if($timeout > 0){
+            $package->setExpire(microtime(true) + $timeout);
+        }else{
+            $package->setExpire(-1);
         }
         $client = new UnixClient($this->idToUnixName($id),$this->getConfig()->getMaxPackageSize());
         $client->send(Protocol::pack(\Opis\Closure\serialize($package)));

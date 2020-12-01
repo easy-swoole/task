@@ -38,9 +38,6 @@ class Worker extends AbstractUnixProcess
             'pid'=>$this->getProcess()->pid,
             'startUpTime'=>time()
         ]);
-        /*
-         * 定时检查任务队列
-         */
         if($this->taskConfig->getTaskQueue()){
             Coroutine::create(function (){
                 while (1){
@@ -49,7 +46,6 @@ class Worker extends AbstractUnixProcess
                             Coroutine::sleep(0.1);
                             continue;
                         }
-
                         $task = $this->taskConfig->getTaskQueue()->pop();
                         if($task){
                             $taskId = $this->taskIdAtomic->add(1);
@@ -102,12 +98,15 @@ class Worker extends AbstractUnixProcess
            * 在投递一些非协成任务的时候，例如客户端的等待时间是3s，阻塞任务也刚好是趋于2.99999~
            * 因此在进程accept该链接并读取完数据后，客户端刚好到达最大等待时间，客户端返回了null，
            * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
+           * -1表示忽略此种情况
         */
-        if($package->getExpire() - round(microtime(true),3) < 0.01){
-            //本质是进程繁忙
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROCESS_BUSY)));
-            $socket->close();
-            return;
+        if($package->getExpire() > 0){
+            if(microtime(true) - $package->getExpire() >= 0.001){
+                //本质是进程繁忙
+                $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROCESS_BUSY)));
+                $socket->close();
+                return;
+            }
         }
         try{
             if($this->infoTable->incr($this->workerIndex,'running',1) <= $this->taskConfig->getMaxRunningNum()){

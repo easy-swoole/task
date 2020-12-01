@@ -10,7 +10,7 @@ use EasySwoole\Task\AbstractInterface\TaskQueueInterface;
 class Config extends SplBean
 {
     protected $tempDir;
-    protected $workerNum = 3;
+    protected $workerNum = 3.0;
     protected $serverName = 'EasySwoole';
     protected $maxRunningNum = 128;
     protected $maxPackageSize = 1024*1024*2;//2M
