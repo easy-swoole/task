@@ -27,13 +27,13 @@ class MessageQueue implements TaskQueueInterface
 
     function clearQueue()
     {
-        msg_remove_queue($this->key);
-        msg_get_queue($this->key, 0666);
+        msg_remove_queue($this->queue);
     }
 
     function pop(): ?Package
     {
-        msg_receive($this->queue, 1, $message_type, 1024, $package,true,MSG_IPC_NOWAIT);
+        msg_receive($this->queue, 1, $message_type, 1024, $package,false,MSG_IPC_NOWAIT);
+        $package = \Opis\Closure\unserialize($package);
         if($package instanceof Package){
             return $package;
         }
@@ -42,6 +42,6 @@ class MessageQueue implements TaskQueueInterface
 
     function push(Package $package): bool
     {
-        return msg_send($this->queue,1,$package,true);
+        return msg_send($this->queue,1,\Opis\Closure\serialize($package),false);
     }
 }
