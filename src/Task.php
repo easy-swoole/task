@@ -27,6 +27,38 @@ class Task
     const ERROR_PACKAGE_EXPIRE = -6;
     const ERROR_SOCK_TIMEOUT = -7;
 
+    static function errCode2Msg(int $code):string
+    {
+        switch ($code){
+            case self::PUSH_IN_QUEUE:{
+                return 'push task in queue';
+            }
+            case self::PUSH_QUEUE_FAIL:{
+                return 'push task to queue fail';
+            }
+            case self::ERROR_PROCESS_BUSY:{
+                return 'task process busy';
+            }
+            case self::ERROR_PROTOCOL_ERROR:{
+                return 'task package protocol error';
+            }
+            case self::ERROR_ILLEGAL_PACKAGE:{
+                return 'task package illegal';
+            }
+            case self::ERROR_TASK_ERROR:{
+                return "task run error";
+            }
+            case self::ERROR_PACKAGE_EXPIRE:{
+                return "task package expire";
+            }
+            case self::ERROR_SOCK_TIMEOUT:{
+                return "task sock timeout";
+            }
+            default:{
+                return 'unknown error';
+            }
+        }
+    }
 
     function __construct(Config $config = null)
     {
@@ -59,32 +91,7 @@ class Task
         return $ret;
     }
 
-    static function errCode2Msg(int $code):string
-    {
-        switch ($code){
-            case self::PUSH_IN_QUEUE:{
-                return 'push task in queue';
-            }
-            case self::PUSH_QUEUE_FAIL:{
-                return 'push task to queue fail';
-            }
-            case self::ERROR_PROCESS_BUSY:{
-                return 'task process busy';
-            }
-            case self::ERROR_PROTOCOL_ERROR:{
-                return 'task package decode error';
-            }
-            case self::ERROR_TASK_ERROR:{
-                return "task run error";
-            }
-            case self::ERROR_PACKAGE_EXPIRE:{
-                return "task package expire";
-            }
-            default:{
-                return 'unknown error';
-            }
-        }
-    }
+
 
     public function attachToServer(Server $server)
     {
