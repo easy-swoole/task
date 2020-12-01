@@ -21,19 +21,22 @@ class Task
     const PUSH_IN_QUEUE = 0;
     const PUSH_QUEUE_FAIL = -1;
     const ERROR_PROCESS_BUSY = -2;
-    const ERROR_PACKAGE_ERROR = -3;
-    const ERROR_TASK_ERROR = -4;
-    const ERROR_PACKAGE_EXPIRE = -5;
+    const ERROR_PROTOCOL_ERROR = -3;
+    const ERROR_ILLEGAL_PACKAGE = -4;
+    const ERROR_TASK_ERROR = -5;
+    const ERROR_PACKAGE_EXPIRE = -6;
+    const ERROR_SOCK_TIMEOUT = -7;
 
 
     function __construct(Config $config)
     {
         $this->taskIdAtomic = new Long(0);
         $this->table = new Table(512);
-        $this->table->column('running',Table::TYPE_INT,4);
-        $this->table->column('success',Table::TYPE_INT,4);
-        $this->table->column('fail',Table::TYPE_INT,4);
-        $this->table->column('pid',Table::TYPE_INT,4);
+        $this->table->column('running',Table::TYPE_INT,8);
+        $this->table->column('success',Table::TYPE_INT,8);
+        $this->table->column('fail',Table::TYPE_INT,8);
+        $this->table->column('pid',Table::TYPE_INT,8);
+        $this->table->column('startUpTime',Table::TYPE_INT,8);
         $this->table->create();
         $this->config = $config;
     }
@@ -59,7 +62,7 @@ class Task
             case self::ERROR_PROCESS_BUSY:{
                 return 'task process busy';
             }
-            case self::ERROR_PACKAGE_ERROR:{
+            case self::ERROR_PROTOCOL_ERROR:{
                 return 'task package decode error';
             }
             case self::ERROR_TASK_ERROR:{
@@ -161,7 +164,7 @@ class Task
         if (!empty($ret)) {
             return \Opis\Closure\unserialize(Protocol::unpack($ret));
         }else{
-            return self::ERROR_PROCESS_BUSY;
+            return self::ERROR_SOCK_TIMEOUT;
         }
     }
 }

@@ -7,9 +7,9 @@ namespace EasySwoole\Task;
 use EasySwoole\Component\Process\Socket\AbstractUnixProcess;
 use EasySwoole\Task\AbstractInterface\TaskInterface;
 use Swoole\Atomic\Long;
+use Swoole\Coroutine;
 use Swoole\Coroutine\Socket;
 use Swoole\Table;
-use Swoole\Timer;
 
 class Worker extends AbstractUnixProcess
 {
@@ -35,26 +35,30 @@ class Worker extends AbstractUnixProcess
             'running'=>0,
             'success'=>0,
             'fail'=>0,
-            'pid'=>$this->getProcess()->pid
+            'pid'=>$this->getProcess()->pid,
+            'startUpTime'=>time()
         ]);
         /*
          * 定时检查任务队列
          */
         if($this->taskConfig->getTaskQueue()){
-            Timer::tick(800,function (){
-                try{
-                    if($this->infoTable->incr($this->workerIndex,'running',1) <= $this->taskConfig->getMaxRunningNum()){
+            Coroutine::create(function (){
+                while ($this->infoTable->incr($this->workerIndex,'running',1) <= $this->taskConfig->getMaxRunningNum()){
+                    try{
                         $task = $this->taskConfig->getTaskQueue()->pop();
                         if($task){
                             $taskId = $this->taskIdAtomic->add(1);
-                            $this->runTask($task,$taskId);
+                            Coroutine::create(function ()use($taskId,$task){
+                                $this->runTask($task,$taskId);
+                            });
                         }
+                    }catch (\Throwable $throwable){
+                        $this->onException($throwable);
+                    } finally {
+                        $this->infoTable->decr($this->workerIndex,'running',1);
                     }
-                }catch (\Throwable $exception){
-                    $this->onException($exception);
-                }finally{
-                    $this->infoTable->decr($this->workerIndex,'running',1);
                 }
+                Coroutine::sleep(0.1);
             });
         }
         parent::run($arg);
@@ -65,23 +69,21 @@ class Worker extends AbstractUnixProcess
         // 收取包头4字节计算包长度 收不到4字节包头丢弃该包
         $header = $socket->recvAll(4, 1);
         if (strlen($header) != 4) {
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PACKAGE_ERROR)));
+            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROTOCOL_ERROR)));
             $socket->close();
             return;
         }
-        // 收包头声明的包长度 包长一致进入命令处理流程
-        //多处close是为了快速释放连接
         $allLength = Protocol::packDataLength($header);
         $data = $socket->recvAll($allLength, 1);
         if (strlen($data) != $allLength) {
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PACKAGE_ERROR)));
+            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROTOCOL_ERROR)));
             $socket->close();
             return;
         }
         /** @var Package $package */
         $package = \Opis\Closure\unserialize($data);
         if(!$package instanceof Package){
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PACKAGE_ERROR)));
+            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_ILLEGAL_PACKAGE)));
             $socket->close();
             return;
         }
@@ -91,7 +93,8 @@ class Worker extends AbstractUnixProcess
            * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
         */
         if($package->getExpire() - round(microtime(true),3) < 0.01){
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PACKAGE_EXPIRE)));
+            //本质是进程繁忙
+            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROCESS_BUSY)));
             $socket->close();
             return;
         }
@@ -175,7 +178,6 @@ class Worker extends AbstractUnixProcess
         }catch (\Throwable $throwable){
             $this->infoTable->incr($this->workerIndex,'fail',1);
             $this->onException($throwable);
-            return;
         }
     }
 }
