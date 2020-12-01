@@ -13,6 +13,7 @@ class Config extends SplBean
     protected $workerNum = 3;
     protected $serverName = 'EasySwoole';
     protected $maxRunningNum = 128;
+    protected $maxPackageSize = 1024*1024*2;//2M
     /**
      * @var float
      */
@@ -22,6 +23,22 @@ class Config extends SplBean
      * @var TaskQueueInterface
      */
     protected $taskQueue;
+
+    /**
+     * @return float|int
+     */
+    public function getMaxPackageSize()
+    {
+        return $this->maxPackageSize;
+    }
+
+    /**
+     * @param float|int $maxPackageSize
+     */
+    public function setMaxPackageSize($maxPackageSize): void
+    {
+        $this->maxPackageSize = $maxPackageSize;
+    }
 
     /**
      * @return mixed
