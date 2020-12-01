@@ -28,7 +28,7 @@ class Task
     const ERROR_SOCK_TIMEOUT = -7;
 
 
-    function __construct(Config $config)
+    function __construct(Config $config = null)
     {
         $this->taskIdAtomic = new Long(0);
         $this->table = new Table(512);
@@ -38,7 +38,16 @@ class Task
         $this->table->column('pid',Table::TYPE_INT,8);
         $this->table->column('startUpTime',Table::TYPE_INT,8);
         $this->table->create();
-        $this->config = $config;
+        if($config){
+            $this->config = $config;
+        }else{
+            $this->config = new Config();
+        }
+    }
+
+    function getConfig():Config
+    {
+        return $this->config;
     }
 
     function status():array
