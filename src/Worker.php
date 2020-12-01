@@ -35,8 +35,7 @@ class Worker extends AbstractUnixProcess
             'running'=>0,
             'success'=>0,
             'fail'=>0,
-            'pid'=>$this->getProcess()->pid,
-            'workerIndex'=>$this->workerIndex
+            'pid'=>$this->getProcess()->pid
         ]);
         /*
          * 定时检查任务队列

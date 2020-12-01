@@ -9,12 +9,14 @@ use EasySwoole\Component\Process\Socket\UnixProcessConfig;
 use EasySwoole\Task\Exception\Exception;
 use Swoole\Atomic\Long;
 use Swoole\Server;
+use Swoole\Table;
 
 class Task
 {
     private $taskIdAtomic;
     private $config;
     private $attachServer = false;
+    private $table;
 
     const PUSH_IN_QUEUE = 0;
     const PUSH_QUEUE_FAIL = -1;
@@ -27,7 +29,22 @@ class Task
     function __construct(Config $config)
     {
         $this->taskIdAtomic = new Long(0);
+        $this->table = new Table(512);
+        $this->table->column('running',Table::TYPE_INT,4);
+        $this->table->column('success',Table::TYPE_INT,4);
+        $this->table->column('fail',Table::TYPE_INT,4);
+        $this->table->column('pid',Table::TYPE_INT,4);
+        $this->table->create();
         $this->config = $config;
+    }
+
+    function status():array
+    {
+        $ret = [];
+        foreach ($this->table as $key => $value){
+            $ret[$key] = $value;
+        }
+        return $ret;
     }
 
     static function errCode2Msg(int $code):string
@@ -85,7 +102,8 @@ class Task
             $config->setArg([
                 'workerIndex'=>$i,
                 'taskIdAtomic'=>$this->taskIdAtomic,
-                'taskConfig'=>$this->config
+                'taskConfig'=>$this->config,
+                'infoTable'=>$this->table
             ]);
             $ret[$i] = new Worker($config);
         }
