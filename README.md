@@ -14,14 +14,16 @@ composer require easyswoole/task
 ## 示例代码
 
 ```php
-use EasySwoole\Task\Config;
+use EasySwoole\Task\MessageQueue;
 use EasySwoole\Task\Task;
 
-/*
-    配置项中可以修改工作进程数、临时目录，进程名，最大并发执行任务数，异常回调等
-*/
-$config = new Config();
-$task = new Task($config);
+require 'vendor/autoload.php';
+
+
+$task = new Task();
+//如果需要任务队列，则默认设置进去一个Queue驱动
+$queue = new MessageQueue();
+$task->getConfig()->setTaskQueue($queue);
 
 $http = new swoole_http_server("127.0.0.1", 9501);
 /*

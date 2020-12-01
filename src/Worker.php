@@ -51,6 +51,8 @@ class Worker extends AbstractUnixProcess
                             Coroutine::create(function ()use($taskId,$task){
                                 $this->runTask($task,$taskId);
                             });
+                        }else{
+                            Coroutine::sleep(0.1);
                         }
                     }catch (\Throwable $throwable){
                         $this->onException($throwable);
