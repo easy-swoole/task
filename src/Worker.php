@@ -49,15 +49,22 @@ class Worker extends AbstractUnixProcess
                         if($task){
                             $taskId = $this->taskIdAtomic->add(1);
                             Coroutine::create(function ()use($taskId,$task){
-                                $this->runTask($task,$taskId);
+                                try{
+                                    $this->runTask($task,$taskId);
+                                }catch (\Throwable $throwable){
+                                    $this->onException($throwable);
+                                } finally {
+                                    $this->infoTable->decr($this->workerIndex,'running',1);
+                                }
+
                             });
                         }else{
+                            $this->infoTable->decr($this->workerIndex,'running',1);
                             Coroutine::sleep(0.1);
                         }
                     }catch (\Throwable $throwable){
-                        $this->onException($throwable);
-                    } finally {
                         $this->infoTable->decr($this->workerIndex,'running',1);
+                        $this->onException($throwable);
                     }
                 }
                 Coroutine::sleep(0.1);
