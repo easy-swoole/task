@@ -102,7 +102,7 @@ class Worker extends AbstractUnixProcess
         */
         if($package->getExpire() > 0 && (microtime(true) - $package->getExpire() >= 0.001)){
             //本质是进程繁忙
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROCESS_BUSY)));
+            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PACKAGE_EXPIRE)));
             $socket->close();
             return;
         }
