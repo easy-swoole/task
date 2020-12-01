@@ -100,13 +100,11 @@ class Worker extends AbstractUnixProcess
            * 因此业务逻辑可能就认定此次投递失败，重新投递，因此进程逻辑也要丢弃该任务。次处逻辑为尽可能避免该种情况发生
            * -1表示忽略此种情况
         */
-        if($package->getExpire() > 0){
-            if(microtime(true) - $package->getExpire() >= 0.001){
-                //本质是进程繁忙
-                $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROCESS_BUSY)));
-                $socket->close();
-                return;
-            }
+        if($package->getExpire() > 0 && (microtime(true) - $package->getExpire() >= 0.001)){
+            //本质是进程繁忙
+            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROCESS_BUSY)));
+            $socket->close();
+            return;
         }
         try{
             if($this->infoTable->incr($this->workerIndex,'running',1) <= $this->taskConfig->getMaxRunningNum()){
