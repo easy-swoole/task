@@ -173,7 +173,7 @@ class Task
         if($timeout === null){
             $timeout = $this->config->getTimeout();
         }
-        $client = new UnixClient($this->idToUnixName($id));
+        $client = new UnixClient($this->idToUnixName($id),$this->getConfig()->getMaxPackageSize());
         $client->send(Protocol::pack(\Opis\Closure\serialize($package)));
         $ret = $client->recv($timeout);
         $client->close();
