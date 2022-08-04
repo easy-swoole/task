@@ -22,7 +22,7 @@ class UnixClient
                 'package_max_length'    => $maxSize
             ]
         );
-        $this->client->connect($unixSock, null, 3);
+        $this->client->connect($unixSock, 0, 3);
     }
 
     function __destruct()
