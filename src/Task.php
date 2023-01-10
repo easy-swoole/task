@@ -177,11 +177,11 @@ class Task
             $package->setExpire(-1);
         }
         $client = new UnixClient($this->idToUnixName($id),$this->getConfig()->getMaxPackageSize());
-        $client->send(Protocol::pack(\Opis\Closure\serialize($package)));
+        $client->send(Protocol::pack(serialize($package)));
         $ret = $client->recv($timeout);
         $client->close();
         if (!empty($ret)) {
-            return \Opis\Closure\unserialize(Protocol::unpack($ret));
+            return unserialize(Protocol::unpack($ret));
         }else{
             return self::ERROR_SOCK_TIMEOUT;
         }

@@ -76,21 +76,21 @@ class Worker extends AbstractUnixProcess
         // 收取包头4字节计算包长度 收不到4字节包头丢弃该包
         $header = $socket->recvAll(4, 1);
         if (strlen($header) != 4) {
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROTOCOL_ERROR)));
+            $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROTOCOL_ERROR)));
             $socket->close();
             return;
         }
         $allLength = Protocol::packDataLength($header);
         $data = $socket->recvAll($allLength, 1);
         if (strlen($data) != $allLength) {
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROTOCOL_ERROR)));
+            $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROTOCOL_ERROR)));
             $socket->close();
             return;
         }
         /** @var Package $package */
-        $package = \Opis\Closure\unserialize($data);
+        $package = unserialize($data);
         if(!$package instanceof Package){
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_ILLEGAL_PACKAGE)));
+            $socket->sendAll(Protocol::pack(serialize(Task::ERROR_ILLEGAL_PACKAGE)));
             $socket->close();
             return;
         }
@@ -102,7 +102,7 @@ class Worker extends AbstractUnixProcess
         */
         if($package->getExpire() > 0 && (microtime(true) - $package->getExpire() >= 0.001)){
             //本质是进程繁忙
-            $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PACKAGE_EXPIRE)));
+            $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PACKAGE_EXPIRE)));
             $socket->close();
             return;
         }
@@ -111,14 +111,14 @@ class Worker extends AbstractUnixProcess
                 $taskId = $this->taskIdAtomic->add(1);
                 switch ($package->getType()){
                     case $package::ASYNC:{
-                        $socket->sendAll(Protocol::pack(\Opis\Closure\serialize($taskId)));
+                        $socket->sendAll(Protocol::pack(serialize($taskId)));
                         $this->runTask($package,$taskId);
                         $socket->close();
                         break;
                     }
                     case $package::SYNC:{
                         $reply = $this->runTask($package,$taskId);
-                        $socket->sendAll(Protocol::pack(\Opis\Closure\serialize($reply)));
+                        $socket->sendAll(Protocol::pack(serialize($reply)));
                         $socket->close();
                         break;
                     }
@@ -128,18 +128,18 @@ class Worker extends AbstractUnixProcess
                 if(($package->getType() != $package::SYNC) && $this->taskConfig->getTaskQueue()){
                     $ret = $this->taskConfig->getTaskQueue()->push($package);
                     if($ret){
-                        $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::PUSH_IN_QUEUE)));
+                        $socket->sendAll(Protocol::pack(serialize(Task::PUSH_IN_QUEUE)));
                     }else{
-                        $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::PUSH_QUEUE_FAIL)));
+                        $socket->sendAll(Protocol::pack(serialize(Task::PUSH_QUEUE_FAIL)));
                     }
                 }else{
-                    $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_PROCESS_BUSY)));
+                    $socket->sendAll(Protocol::pack(serialize(Task::ERROR_PROCESS_BUSY)));
                 }
                 $socket->close();
             }
         }catch (\Throwable $exception){
             if($package->getType() == $package::SYNC){
-                $socket->sendAll(Protocol::pack(\Opis\Closure\serialize(Task::ERROR_TASK_ERROR)));
+                $socket->sendAll(Protocol::pack(serialize(Task::ERROR_TASK_ERROR)));
                 $socket->close();
             }
             throw $exception;
@@ -187,5 +187,11 @@ class Worker extends AbstractUnixProcess
             $this->infoTable->incr($this->workerIndex,'fail',1);
             $this->onException($throwable);
         }
+    }
+
+    function onShutDown()
+    {
+        parent::onShutDown();
+        $this->infoTable->delete($this->workerIndex);
     }
 }

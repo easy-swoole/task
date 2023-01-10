@@ -38,7 +38,7 @@ class MessageQueue implements TaskQueueInterface
     function pop(): ?Package
     {
         msg_receive($this->queue, 1, $message_type, 1024, $package,false,MSG_IPC_NOWAIT);
-        $package = \Opis\Closure\unserialize($package);
+        $package = unserialize($package);
         if($package instanceof Package){
             return $package;
         }
@@ -47,6 +47,6 @@ class MessageQueue implements TaskQueueInterface
 
     function push(Package $package): bool
     {
-        return msg_send($this->queue,1,\Opis\Closure\serialize($package),false);
+        return msg_send($this->queue,1,serialize($package),false);
     }
 }
