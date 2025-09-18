@@ -28,11 +28,6 @@ class Worker extends AbstractUnixProcess
 
     public function run($arg)
     {
-        Manager::getInstance()->getProcessTable()
-            ->set($this->getProcess()->pid,[
-                'customProcess'=>0
-            ]);
-
         $this->workerIndex = $arg['workerIndex'];
         $this->infoTable = $arg['infoTable'];
         $this->taskIdAtomic = $arg['taskIdAtomic'];
